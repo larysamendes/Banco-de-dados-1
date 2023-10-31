@@ -296,3 +296,139 @@ from produto p
 join categoria ca on ca.codcat = p.cod_categoria
 group by ca.nome
 having sum(p.quantidade) > 100;
+
+
+--Crie uma view que lista as ordens de compra no valor de mais de 10 mil reais
+--que foram transportadas pela transportadora 'Azul Cargo'.
+
+create view lista_ordem as
+    select o.*
+        from ordem_de_compra o, transportador t , nota_fiscal n
+            where valor_total > 10000 and
+                  cod_ordem_compra = codordem and
+                  codigo_transportadora = codtrans
+                  t.nome = 'Azul Cargo' and
+                  o.status = 'FINALIZADA'
+
+CREATE VIEW AZUL_CARGO
+    AS SELECT o.*
+    FROM NOTA_FISCAL nf, ORDEM_DE_COMPRA o, TRANSPORTADORA t
+    WHERE nf.COD_ORDEM_COMPRA = o.CODORDEM AND o.CODIGO_TRANSPORTADORA = t.CODTRANS
+        AND nf.VALOR_TOTAL > 10000 AND t.NOME = 'Azul Cargo' AND o.STATUS = 'FINALIZADA'
+
+CREATE VIEW TRANSPORTADORAS_QUANTIDADE_DE_COMPRAS(nomeTransportadora, comprasTransportadas)
+    AS SELECT t.NOME AS nomeTransportadora, COUNT(o.CODORDEM) AS comprasTransportadas
+    FROM TRANSPORTADORA t LEFT OUTER JOIN ORDEM_DE_COMPRA o
+    ON t.CODTRANS = o.CODIGO_TRANSPORTADORA AND o.STATUS = 'FINALIZADA'
+    GROUP BY t.CODTRANS, t.NOME
+  
+CREATE VIEW FORNECEDORES_CATEGORIAS
+AS SELECT
+    fr.CODFORN AS CODIGO_FORNECEDOR, fr.CNPJ AS CNPJ_FORNECEDOR, fr.NOME AS NOME_FORNECEDOR,
+    fr.HOME_PAGE AS HOME_PAGE_FORNECEDOR, fr.EMAIL AS EMAIL_FORNECEDOR, fr.TELEFONE AS TELEFONE_FORNECEDOR,
+    fr.END_RUA AS RUA_FORNECEDOR, fr.END_NUM AS NUM_FORNECEDOR, fr.END_BAIRRO AS BAIRRO_FORNECEDOR,
+    fr.END_CIDADE AS CIDADE_FORNECEDOR, fr.END_CEP AS CEP_FORNECEDOR, ca.CODCAT AS CODIGO_CATEGORIA,
+    ca.NOME AS NOME_CATEGORIA, SUM(pt.QUANTIDADE) AS QUANTIDADE_PRODUTOS
+FROM FORNECEDOR fr
+CROSS JOIN CATEGORIA ca
+LEFT OUTER JOIN FORNECIMENTO ft ON fr.CODFORN = ft.CODIGO_FORNECEDOR
+LEFT OUTER JOIN PRODUTO pt ON ft.CODIGO_PRODUTO = pt.CODPROD
+        AND pt.COD_CATEGORIA = ca.CODCAT
+GROUP BY fr.CODFORN,ca.CODCAT, fr.NOME, ca.NOME, fr.CNPJ, fr.HOME_PAGE, fr.EMAIL, fr.TELEFONE, fr.END_RUA, 
+         fr.END_NUM, fr.END_BAIRRO, fr.END_CIDADE, fr.END_CEP
+ORDER BY fr.CODFORN, ca.CODCAT;
+
+
+CREATE OR REPLACE TRIGGER NOME_TRANSPORTADORA
+BEFORE INSERT OR UPDATE OF NOME ON TRANSPORTADORA
+FOR EACH ROW
+BEGIN
+    :NEW.NOME := INITCAP(:NEW.NOME);
+END;
+
+
+
+CREATE OR REPLACE TRIGGER CLIENTE_CPF
+BEFORE INSERT OR UPDATE OF CPF ON CLIENTE
+FOR EACH ROW
+BEGIN
+    :NEW.NOME := UPPER(:NEW.NOME);
+END;
+
+
+-- Crie uma view que lista as transportadoras e a quantidade compras que elas já transportaram.
+
+create view transportadora_new (nomeTransportadora, totalCompras)
+    as select t.nome as nomeTransportadora, count(o.codordem) as totalCompras
+        from transportadora t left join ordem_de_compra o
+            on codtrans = codigo_transportadora and
+               status = 'FINALIZADA'
+        group by codtrans, t.nome
+
+select *
+    from transportadora_new
+
+--6 - Crie uma view que lista os fornecedores e a quantidade de produto por categoria
+--fornecidos por eles. A view deve exibir os dados dos fornecedores, a categoria do
+--produto e a quantidade de produtos por categoria.
+
+create view fornec
+    as select fr.CODFORN AS CODIGO_FORNECEDOR, fr.CNPJ AS CNPJ_FORNECEDOR, fr.NOME AS NOME_FORNECEDOR,
+    fr.HOME_PAGE AS HOME_PAGE_FORNECEDOR, fr.EMAIL AS EMAIL_FORNECEDOR, fr.TELEFONE AS TELEFONE_FORNECEDOR,
+    fr.END_RUA AS RUA_FORNECEDOR, fr.END_NUM AS NUM_FORNECEDOR, fr.END_BAIRRO AS BAIRRO_FORNECEDOR,
+    fr.END_CIDADE AS CIDADE_FORNECEDOR, fr.END_CEP AS CEP_FORNECEDOR, ca.CODCAT AS CODIGO_CATEGORIA,
+    ca.NOME AS NOME_CATEGORIA, SUM(pt.QUANTIDADE) AS QUANTIDADE_PRODUTOS
+        from fornecedor f
+
+-- 7 - Crie um trigger para modificar o nome da transportadora deixando a primeira
+--letra no nome sempre maiúscula quando esse dado for inserido ou atualizado.
+
+create trigger modificaNome
+    before update or insert on transportadora
+    for each row
+    begin 
+        :New.nome := initcap(:New.nome);
+    end;
+
+--8 - Crie um trigger para deixar em caixa alta todo o nome do cliente quando for
+--inserido ou atualizado um número de CPF para ele.
+
+create or replace trigger update_cpf
+    after update or insert on cliente
+    for each row
+    when (old.cpf <> new.cpf)
+    begin
+        update cliente
+            set nome = upper(nome),
+            set sobrenome = upper(sobrenome)
+     end;
+
+CREATE OR REPLACE TRIGGER update_cpf
+AFTER INSERT OR UPDATE OF cpf ON cliente
+FOR EACH ROW
+WHEN (OLD.cpf <> NEW.cpf)
+BEGIN
+    :NEW.nome := UPPER(:NEW.nome);
+    :NEW.sobrenome := UPPER(:NEW.sobrenome);
+END;
+
+create or replace trigger up_cpf
+    before insert or update of cpf on cliente
+    for each row
+    begin
+        :New.nome := upper(:New.nome);
+    end;
+
+--9 - Crie um trigger para substituir o valor do campo 'END_BAIRRO' por 'CENTRO'
+--na tabela de CLIENTE se esse valor for nulo quando o cliente for atualizado ou
+--inserido.
+
+
+CREATE OR REPLACE TRIGGER TG_Transportadora_letra
+BEFORE INSERT OR UPDATE OF nome ON TRANSPORTADORA
+FOR EACH ROW
+BEGIN
+  IF  REGEXP_LIKE(:NEW.nome, '^[a-z]') THEN
+    :NEW.nome := UPPER(SUBSTR(:NEW.nome, 1, 1)) || SUBSTR(:NEW.nome, 2);
+  END IF;
+END;
