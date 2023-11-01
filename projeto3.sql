@@ -432,3 +432,153 @@ BEGIN
     :NEW.nome := UPPER(SUBSTR(:NEW.nome, 1, 1)) || SUBSTR(:NEW.nome, 2);
   END IF;
 END;
+
+select a.nome
+    from empregado a
+        where matricula in (select matricula
+                            from empregado)
+        minus
+        (select e1.matricula
+            from empregado e1, empregado e2
+                where e1.salario < e2.salario);
+ 
+select nome
+    from empregado
+        where salario = (select max(salario)
+                            from empregado)
+
+select nome
+    from empregado
+        where salario >= all (select salario
+                                from empregado)
+
+select nome 
+    from empregado
+    where matricula in (select e1.matricula
+                            from empregado e1, empregado e2
+                                where e1.salario > e2.salario)
+select *
+        from empregado
+
+
+update empregado
+    set salario = 102311
+    where nome = 'larysa'
+
+--4) crie uma visao que mostra a categoria eo total em dinheito estocado por categoria, que totalizam mais de 3000
+
+create table newproduto(
+    idProduto int,
+    nome varchar(15),
+    categoria varchar(15),
+    preco number(7,2),
+    estoque int,
+    primary key (idProduto)
+);
+
+create table nemcompra (
+    idproduto int,
+    quantidade int,
+    primary key (idproduto),
+    foreign key (idproduto) references newproduto(iDproduto)
+);
+
+
+--3) faça um trigger para quando houver uma atualizacao no estoque da tabela produto, se o novo valor de estoque for menor que 5 , então
+-- insira na tabela compras o produto e a quantidade igual a 50. 
+
+create or replace trigger update_estoque
+    after update of estoque on newproduto
+    for each row
+    when (estoque < 5)
+    begin 
+        insert into nemcompra(idproduto, quantidade)
+        values(:new.idproduto, 50);
+    end;
+
+--4) crie uma visao que mostra a categoria eo total em dinheiro 
+--estocado por categoria, que totalizam mais de 3000
+--produto(idproduto, nome, categoria, preco, estoque)
+
+create view mostra
+    as select categoria, sum(preco * estoque) as total
+        from newproduto
+        group by categoria
+        having sum(preco * estoque ) > 3000;
+        
+--5) remova da tabela compra todos os produtos categoria limpeza 
+--que tem quantidade menor do que 10.
+
+delete from newproduto
+    where idproduto in (select p.idproduto
+                            from newproduto p, nemcompra c
+                                where p.categoria = 'limpeza' and  
+                                      p.idproduto = c.idproduto and
+                                      c.quantidade < 10)
+--9- Crie um trigger que insira pontos por cada indicação de um cliente, durante uma
+--inserção ou atualização, sempre que um cliente aparecer como indicador de outro, o
+--mesmo receberá 100 pontos.
+
+
+create or replace trigger atualizaPontos
+    after insert or update of cliente_indica on cliente
+    for each row 
+    begin
+        if :new.cliente_indica is not null then
+            update cliente
+            set pontos = pontos + 100
+            where codcli = :new.cliente_indica;
+        end if;
+     end;
+
+select *
+    from cliente
+
+update cliente
+    set cliente_indica = 1
+        where  codcli = 3
+    
+drop trigger update_cpf
+
+
+
+create or replace trigger new_status
+    before insert on ordem_de_compra
+    for each row
+    begin
+        :new.status := 'AGUARDANDO PAGAMENTO';
+    end;
+
+--4 - Crie uma view que liste o nome dos produtos e a quantidade de vezes que foram
+--comprados. A listagem deverá estar ordenada dos produtos mais comprados para
+--os menos comprados.
+
+create view lista_produtos as
+    select p.nome , count(codprod) as total_comprado
+        from produto p left join compra_produto p on codigo_produto = codprod
+        group by p.nome
+        order by total_comprado
+
+
+--8 - Crie um trigger para inserir SEXO = 'outro' quando uma tupla for inserida com o
+--valor SEXO nulo.
+
+create or replace trigger modifica_sexo_null
+    before insert on cliente
+    for each row
+    begin
+        if :new.sexo is null then
+            :new.sexo := 'outro';
+        end if;
+    end;
+
+---7 - Crie um trigger para modificar o sobrenome de um cliente. Quando inserir um
+--sobrenome, substituir por 'da -> resto do sobrenome'. Exemplo: se inserir 'silva',
+--substituir por 'da silva'.
+
+create or replace trigger modifica_sobrenome
+    before insert on cliente
+    for each row
+    begin
+        :new.sobrenome := 'da ' || :new.sobrenome;
+    end;
